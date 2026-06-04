@@ -39,7 +39,7 @@ public class Cliente extends PanacheEntity {
     @Column(nullable = false)
     public String cep;
 
-    @Column(nullable = false)
+    @Column(name = "tipo_tarifa", nullable = false)
     public String tipoTarifa;
 
     @Column(nullable = false)

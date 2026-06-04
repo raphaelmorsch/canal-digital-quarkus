@@ -19,8 +19,11 @@ const TIPOS_SOLICITACAO = {
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-    if (token && cliente) showApp();
-    else showLogin();
+    if (token && cliente) {
+        validateSession().then((ok) => (ok ? showApp() : showLogin()));
+    } else {
+        showLogin();
+    }
 
     $('#login-form').addEventListener('submit', onLogin);
     $('#btn-logout').addEventListener('click', onLogout);
@@ -31,11 +34,16 @@ function init() {
 }
 
 async function api(path, options = {}) {
+    const isAuthRoute = path.startsWith('/auth/');
     const headers = { 'Content-Type': 'application/json', ...options.headers };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token && !isAuthRoute) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${API}${path}`, { ...options, headers });
     if (res.status === 401) {
-        onLogout();
+        if (isAuthRoute) {
+            const err = await res.json().catch(() => ({ message: 'CPF/e-mail ou senha inválidos' }));
+            throw new Error(err.message || 'CPF/e-mail ou senha inválidos');
+        }
+        clearSession();
         throw new Error('Sessão expirada');
     }
     if (!res.ok) {
@@ -83,12 +91,25 @@ async function onLogin(e) {
     }
 }
 
-async function onLogout() {
-    try { await api('/auth/logout', { method: 'POST' }); } catch (_) {}
+async function validateSession() {
+    try {
+        await api('/cliente/me');
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function clearSession() {
     token = null;
     cliente = null;
     localStorage.removeItem('token');
     localStorage.removeItem('cliente');
+}
+
+async function onLogout() {
+    try { await api('/auth/logout', { method: 'POST' }); } catch (_) {}
+    clearSession();
     showLogin();
 }
 
