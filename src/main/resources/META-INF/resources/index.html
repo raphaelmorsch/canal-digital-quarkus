@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energia+ | Canal Digital do Cliente</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <script src="/js/app.js" defer></script>
+</head>
+<body>
+    <div id="login-view" class="view active">
+        <div class="login-panel">
+            <div class="login-brand">
+                <div class="logo">⚡</div>
+                <h1>Energia+</h1>
+                <p>Canal Digital do Cliente</p>
+            </div>
+            <form id="login-form" class="card">
+                <h2>Acesse sua conta</h2>
+                <label for="identificador">CPF ou e-mail</label>
+                <input type="text" id="identificador" placeholder="maria@email.com" required autocomplete="username">
+
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" placeholder="••••••" required autocomplete="current-password">
+
+                <button type="submit" class="btn btn-primary">Entrar</button>
+                <p id="login-error" class="error hidden"></p>
+            </form>
+            <div class="demo-hint card">
+                <strong>Contas de demonstração</strong>
+                <p><code>maria@email.com</code> / <code>123456</code></p>
+                <p><code>joao@email.com</code> / <code>123456</code></p>
+            </div>
+        </div>
+        <div class="login-hero">
+            <h2>Gerencie sua energia com praticidade</h2>
+            <ul>
+                <li>Consulte e pague faturas</li>
+                <li>Acompanhe seu consumo</li>
+                <li>Abra solicitações de serviço</li>
+                <li>Receba alertas e avisos</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="app-view" class="view">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <span class="logo-sm">⚡</span>
+                <span>Energia+</span>
+            </div>
+            <nav>
+                <button class="nav-item active" data-page="dashboard">📊 Dashboard</button>
+                <button class="nav-item" data-page="faturas">📄 Faturas</button>
+                <button class="nav-item" data-page="consumo">📈 Consumo</button>
+                <button class="nav-item" data-page="solicitacoes">📋 Solicitações</button>
+                <button class="nav-item" data-page="notificacoes">
+                    🔔 Notificações
+                    <span id="badge-notif" class="badge hidden">0</span>
+                </button>
+                <button class="nav-item" data-page="conta">👤 Minha Conta</button>
+            </nav>
+            <button id="btn-logout" class="btn btn-ghost">Sair</button>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <p class="greeting">Olá,</p>
+                    <h2 id="user-name">Cliente</h2>
+                </div>
+                <div class="instalacao">
+                    <span>Instalação</span>
+                    <strong id="user-instalacao">—</strong>
+                </div>
+            </header>
+
+            <section id="page-dashboard" class="page active">
+                <div class="stats-grid" id="stats-grid"></div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Histórico de consumo (kWh)</h3>
+                        <canvas id="chart-consumo"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Próxima fatura</h3>
+                        <div id="proxima-fatura"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="page-faturas" class="page">
+                <div class="page-header">
+                    <h3>Faturas</h3>
+                    <p>Consulte, pague e acompanhe suas contas de energia</p>
+                </div>
+                <div id="faturas-list" class="table-wrap"></div>
+            </section>
+
+            <section id="page-consumo" class="page">
+                <div class="page-header">
+                    <h3>Consumo de energia</h3>
+                    <p>Compare seu consumo com a média da região</p>
+                </div>
+                <div class="card">
+                    <canvas id="chart-consumo-full" height="120"></canvas>
+                </div>
+                <div id="consumo-table" class="table-wrap"></div>
+            </section>
+
+            <section id="page-solicitacoes" class="page">
+                <div class="page-header">
+                    <h3>Solicitações de serviço</h3>
+                    <button id="btn-nova-solicitacao" class="btn btn-primary">Nova solicitação</button>
+                </div>
+                <div id="solicitacoes-list" class="table-wrap"></div>
+            </section>
+
+            <section id="page-notificacoes" class="page">
+                <div class="page-header">
+                    <h3>Notificações</h3>
+                </div>
+                <div id="notificacoes-list" class="notif-list"></div>
+            </section>
+
+            <section id="page-conta" class="page">
+                <div class="page-header"><h3>Minha conta</h3></div>
+                <div id="conta-detalhes" class="card conta-grid"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content card">
+            <h3 id="modal-title">Modal</h3>
+            <div id="modal-body"></div>
+            <div class="modal-actions">
+                <button id="modal-cancel" class="btn btn-ghost">Cancelar</button>
+                <button id="modal-confirm" class="btn btn-primary">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+</body>
+</html>
