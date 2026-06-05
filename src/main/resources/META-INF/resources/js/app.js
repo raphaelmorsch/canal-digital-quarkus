@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', init);
 
 function init() {
     if (token && cliente) {
-        validateSession().then((ok) => (ok ? showApp() : showLogin()));
+        checkSession().then((ok) => (ok ? showApp() : showLogin()));
     } else {
         showLogin();
     }
@@ -33,25 +33,48 @@ function init() {
     $('.modal-backdrop').addEventListener('click', closeModal);
 }
 
+async function parseError(res, fallback) {
+    const err = await res.json().catch(() => ({ message: fallback }));
+    return new Error(err.message || err.details?.join(', ') || fallback);
+}
+
 async function api(path, options = {}) {
-    const isAuthRoute = path.startsWith('/auth/');
     const headers = { 'Content-Type': 'application/json', ...options.headers };
-    if (token && !isAuthRoute) headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${API}${path}`, { ...options, headers });
     if (res.status === 401) {
-        if (isAuthRoute) {
-            const err = await res.json().catch(() => ({ message: 'CPF/e-mail ou senha inválidos' }));
-            throw new Error(err.message || 'CPF/e-mail ou senha inválidos');
-        }
         clearSession();
-        throw new Error('Sessão expirada');
+        throw new Error('Sessão expirada. Faça login novamente.');
     }
     if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Erro na requisição' }));
-        throw new Error(err.message || err.details?.join(', ') || 'Erro na requisição');
+        throw await parseError(res, 'Erro na requisição');
     }
     if (res.status === 204) return null;
     return res.json();
+}
+
+async function loginApi(identificador, senha) {
+    const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identificador, senha })
+    });
+    if (!res.ok) {
+        throw await parseError(res, 'CPF/e-mail ou senha inválidos');
+    }
+    return res.json();
+}
+
+async function checkSession() {
+    if (!token) return false;
+    const res = await fetch(`${API}/cliente/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.status === 401) {
+        clearSession();
+        return false;
+    }
+    return res.ok;
 }
 
 function showLogin() {
@@ -72,13 +95,10 @@ async function onLogin(e) {
     const errEl = $('#login-error');
     errEl.classList.add('hidden');
     try {
-        const data = await api('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({
-                identificador: $('#identificador').value.trim(),
-                senha: $('#senha').value
-            })
-        });
+        const data = await loginApi(
+            $('#identificador').value.trim(),
+            $('#senha').value
+        );
         token = data.token;
         cliente = data.cliente;
         localStorage.setItem('token', token);
@@ -88,15 +108,6 @@ async function onLogin(e) {
     } catch (err) {
         errEl.textContent = err.message;
         errEl.classList.remove('hidden');
-    }
-}
-
-async function validateSession() {
-    try {
-        await api('/cliente/me');
-        return true;
-    } catch (_) {
-        return false;
     }
 }
 

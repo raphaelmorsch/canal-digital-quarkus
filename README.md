@@ -20,14 +20,33 @@ Aplicação completa que simula o **canal digital do cliente** de uma empresa de
 ## Executar
 
 ```bash
-./mvnw quarkus:dev
-```
-
-Ou, se não houver wrapper:
-
-```bash
 mvn quarkus:dev
 ```
+
+## Deploy (Docker / OpenShift)
+
+**Importante:** faça build limpo antes da imagem — o pod antigo ainda carrega `import.sql` e o banco fica sem usuários.
+
+```bash
+mvn clean package -DskipTests
+docker build -f src/main/docker/Dockerfile.jvm -t canal-digital-quarkus:latest .
+```
+
+Após subir o pod, confira a versão implantada:
+
+```bash
+curl http://<host>:8080/api/info
+```
+
+Resposta esperada (versão nova):
+
+```json
+{"buildId":"2026-06-05-demo-loader-v2","dataLoader":"DemoDataLoader (Java)","importSql":false,"clientesCadastrados":2}
+```
+
+Nos logs do pod **não** deve aparecer `INSERT INTO clientes` nem `import.sql`. Deve aparecer:
+
+`Dados demo carregados: 2 clientes`
 
 Acesse:
 
