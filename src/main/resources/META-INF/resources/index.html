@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-    <script src="/js/app.js?v=2" defer></script>
+    <script src="/js/app.js?v=3" defer></script>
 </head>
 <body>
     <div id="login-view" class="view active">
@@ -62,6 +62,7 @@
                     🔔 Notificações
                     <span id="badge-notif" class="badge hidden">0</span>
                 </button>
+                <button class="nav-item hidden" id="nav-simulador-economia" data-page="simulador-economia">💡 Simulador de Economia</button>
                 <button class="nav-item" data-page="conta">👤 Minha Conta</button>
             </nav>
             <button id="btn-logout" class="btn btn-ghost">Sair</button>
@@ -125,6 +126,26 @@
                     <h3>Notificações</h3>
                 </div>
                 <div id="notificacoes-list" class="notif-list"></div>
+            </section>
+
+            <section id="page-simulador-economia" class="page">
+                <div class="page-header">
+                    <h3>Simulador de Economia</h3>
+                    <p>Estime quanto você pode economizar reduzindo o consumo — com base no seu histórico</p>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Simule uma redução</h3>
+                        <label for="reducao-slider">Redução de consumo: <strong id="reducao-valor">10%</strong></label>
+                        <input type="range" id="reducao-slider" min="1" max="50" value="10" class="slider">
+                        <button id="btn-simular-economia" class="btn btn-primary" style="margin-top:1rem;width:auto">Calcular economia</button>
+                        <div id="simulacao-resultado" style="margin-top:1.5rem"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Dicas personalizadas</h3>
+                        <div id="simulador-dicas" class="dicas-list"></div>
+                    </div>
+                </div>
             </section>
 
             <section id="page-conta" class="page">

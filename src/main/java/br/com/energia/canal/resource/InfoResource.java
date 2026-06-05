@@ -1,6 +1,8 @@
 package br.com.energia.canal.resource;
 
+import br.com.energia.canal.config.FeatureToggleService;
 import br.com.energia.canal.entity.Cliente;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -13,7 +15,10 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Info")
 public class InfoResource {
 
-    private static final String BUILD_ID = "2026-06-05-datasource-fix-v2";
+    private static final String BUILD_ID = "2026-06-05-simulador-economia-v1";
+
+    @Inject
+    FeatureToggleService features;
 
     @GET
     public Map<String, Object> info() {
@@ -21,6 +26,8 @@ public class InfoResource {
                 "buildId", BUILD_ID,
                 "dataLoader", "DemoDataLoader (Java)",
                 "importSql", false,
-                "clientesCadastrados", Cliente.count());
+                "clientesCadastrados", Cliente.count(),
+                "features", Map.of(
+                        "simuladorEconomia", features.isSimuladorEconomiaEnabled()));
     }
 }

@@ -327,6 +327,27 @@ th { background: var(--primary-light); font-size: 0.8rem; text-transform: upperc
     to { transform: translateY(0); opacity: 1; }
 }
 
+.dicas-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.dica-item {
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+}
+
+.dica-item.ALTA { border-left-color: var(--danger); }
+.dica-item.MEDIA { border-left-color: var(--warning); }
+.dica-item.BAIXA { border-left-color: var(--success); }
+
+.dica-item h4 { font-size: 0.9rem; margin-bottom: 0.35rem; }
+.dica-item p { font-size: 0.875rem; color: var(--text-muted); }
+
+.slider { width: 100%; margin-top: 0.5rem; accent-color: var(--primary); }
+
+.sim-result { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem; }
+.sim-result .highlight { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+
 @media (max-width: 900px) {
     #login-view { flex-direction: column; }
     .login-hero { display: none; }

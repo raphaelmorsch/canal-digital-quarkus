@@ -89,6 +89,44 @@ class AuthResourceTest {
                 .then()
                 .statusCode(200)
                 .body("buildId", notNullValue())
-                .body("clientesCadastrados", org.hamcrest.Matchers.equalTo(2));
+                .body("clientesCadastrados", org.hamcrest.Matchers.equalTo(2))
+                .body("features.simuladorEconomia", org.hamcrest.Matchers.equalTo(true));
+    }
+
+    @Test
+    void simuladorEconomiaQuandoHabilitado() {
+        String token = given()
+                .contentType(ContentType.JSON)
+                .body("""
+                        {"identificador":"maria@email.com","senha":"123456"}
+                        """)
+                .when()
+                .post("/api/auth/login")
+                .then()
+                .statusCode(200)
+                .extract()
+                .path("token");
+
+        given()
+                .header("Authorization", "Bearer " + token)
+                .when()
+                .get("/api/simulador-economia/resumo")
+                .then()
+                .statusCode(200)
+                .body("consumoAtualKwh", org.hamcrest.Matchers.greaterThan(0))
+                .body("dicas", notNullValue());
+
+        given()
+                .header("Authorization", "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body("""
+                        {"reducaoPercentual":15}
+                        """)
+                .when()
+                .post("/api/simulador-economia/simular")
+                .then()
+                .statusCode(200)
+                .body("economiaMensal", notNullValue())
+                .body("economiaAnual", notNullValue());
     }
 }

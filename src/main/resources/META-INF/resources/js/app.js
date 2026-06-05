@@ -3,6 +3,7 @@ let token = localStorage.getItem('token');
 let cliente = JSON.parse(localStorage.getItem('cliente') || 'null');
 let chartDashboard = null;
 let chartConsumoFull = null;
+let featureFlags = { simuladorEconomia: false };
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -29,6 +30,10 @@ function init() {
     $('#btn-logout').addEventListener('click', onLogout);
     $$('.nav-item').forEach((btn) => btn.addEventListener('click', () => navigate(btn.dataset.page)));
     $('#btn-nova-solicitacao').addEventListener('click', abrirNovaSolicitacao);
+    $('#btn-simular-economia')?.addEventListener('click', executarSimulacao);
+    $('#reducao-slider')?.addEventListener('input', (e) => {
+        $('#reducao-valor').textContent = e.target.value + '%';
+    });
     $('#modal-cancel').addEventListener('click', closeModal);
     $('.modal-backdrop').addEventListener('click', closeModal);
 }
@@ -87,7 +92,18 @@ function showApp() {
     $('#app-view').classList.add('active');
     $('#user-name').textContent = cliente.nome.split(' ')[0];
     $('#user-instalacao').textContent = cliente.numeroInstalacao;
-    navigate('dashboard');
+    loadFeatureFlags().then(() => navigate('dashboard'));
+}
+
+async function loadFeatureFlags() {
+    try {
+        const info = await api('/info');
+        featureFlags = info.features || { simuladorEconomia: false };
+        const nav = $('#nav-simulador-economia');
+        if (nav) nav.classList.toggle('hidden', !featureFlags.simuladorEconomia);
+    } catch (_) {
+        featureFlags = { simuladorEconomia: false };
+    }
 }
 
 async function onLogin(e) {
@@ -133,7 +149,8 @@ function navigate(page) {
         consumo: loadConsumo,
         solicitacoes: loadSolicitacoes,
         notificacoes: loadNotificacoes,
-        conta: loadConta
+        conta: loadConta,
+        'simulador-economia': loadSimuladorEconomia
     };
     loaders[page]?.();
 }
@@ -349,6 +366,49 @@ function updateNotifBadge(count) {
     } else {
         badge.classList.add('hidden');
     }
+}
+
+async function loadSimuladorEconomia() {
+    if (!featureFlags.simuladorEconomia) {
+        toast('Simulador de Economia desabilitado.', true);
+        navigate('dashboard');
+        return;
+    }
+    try {
+        const resumo = await api('/simulador-economia/resumo');
+        $('#simulador-dicas').innerHTML = renderDicas(resumo.dicas);
+        await executarSimulacao();
+    } catch (err) { toast(err.message, true); }
+}
+
+function renderDicas(dicas) {
+    return (dicas || []).map((d) => `
+        <div class="dica-item ${d.prioridade}">
+            <h4>${d.titulo}</h4>
+            <p>${d.descricao}</p>
+        </div>
+    `).join('') || '<p style="color:var(--text-muted)">Sem dicas no momento.</p>';
+}
+
+async function executarSimulacao() {
+    const reducao = parseInt($('#reducao-slider')?.value || '10', 10);
+    try {
+        const r = await api('/simulador-economia/simular', {
+            method: 'POST',
+            body: JSON.stringify({ reducaoPercentual: reducao })
+        });
+        $('#simulador-dicas').innerHTML = renderDicas(r.dicas);
+        $('#simulacao-resultado').innerHTML = `
+            <div class="sim-result">
+                <div><span class="label">Consumo atual</span><div class="highlight">${r.consumoAtualKwh} kWh</div></div>
+                <div><span class="label">Consumo simulado</span><div class="highlight">${r.consumoSimuladoKwh} kWh</div></div>
+                <div><span class="label">Conta estimada hoje</span><div>${formatMoney(r.valorAtualEstimado)}</div></div>
+                <div><span class="label">Conta simulada</span><div>${formatMoney(r.valorSimuladoEstimado)}</div></div>
+            </div>
+            <p style="margin-top:1rem"><strong>Economia mensal:</strong> ${formatMoney(r.economiaMensal)}</p>
+            <p><strong>Economia anual estimada:</strong> <span style="color:var(--primary);font-weight:700">${formatMoney(r.economiaAnual)}</span></p>
+        `;
+    } catch (err) { toast(err.message, true); }
 }
 
 async function loadConta() {

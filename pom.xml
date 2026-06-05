@@ -131,6 +131,7 @@
                     </systemPropertyVariables>
                     <environmentVariables>
                         <CANAL_DB_BOOTSTRAP>false</CANAL_DB_BOOTSTRAP>
+                        <CANAL_FEATURE_SIMULADOR_ECONOMIA>true</CANAL_FEATURE_SIMULADOR_ECONOMIA>
                     </environmentVariables>
                 </configuration>
             </plugin>
