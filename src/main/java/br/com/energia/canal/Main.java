@@ -3,9 +3,9 @@ package br.com.energia.canal;
 import io.quarkus.runtime.Quarkus;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.regex.Pattern;
 
 /**
@@ -15,6 +15,15 @@ public class Main {
 
     private static final Pattern SAFE_DB_NAME = Pattern.compile("^[A-Za-z0-9_]+$");
     private static final int WAIT_ONLINE_SECONDS = 90;
+
+    private static final String SQL_DATABASE_EXISTS =
+            "SELECT 1 FROM sys.databases WHERE name = ?";
+
+    private static final String SQL_DATABASE_STATE =
+            "SELECT state_desc FROM sys.databases WHERE name = ?";
+
+    private static final String SQL_CREATE_DATABASE =
+            "EXEC sp_executesql N'CREATE DATABASE ' + QUOTENAME(@dbName), N'@dbName sysname', @dbName = ?";
 
     public static void main(String[] args) {
         ensureDatabaseExists();
@@ -51,12 +60,9 @@ public class Main {
 
         System.out.println("Bootstrap SQL Server: verificando database '" + dbName + "' em " + host + ":" + port + " ...");
 
-        try (Connection connection = DriverManager.getConnection(masterUrl, user, password);
-                Statement statement = connection.createStatement()) {
-            statement.execute(
-                    "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'" + dbName + "') "
-                            + "CREATE DATABASE [" + dbName + "]");
-            waitUntilOnline(statement, dbName);
+        try (Connection connection = DriverManager.getConnection(masterUrl, user, password)) {
+            createDatabaseIfNotExists(connection, dbName);
+            waitUntilOnline(connection, dbName);
         } catch (SQLException e) {
             failBootstrap(user, e);
         } catch (InterruptedException e) {
@@ -66,8 +72,8 @@ public class Main {
         }
 
         try (Connection connection = DriverManager.getConnection(appUrl, user, password);
-                Statement statement = connection.createStatement();
-                ResultSet rs = statement.executeQuery("SELECT 1")) {
+                PreparedStatement statement = connection.prepareStatement("SELECT 1");
+                ResultSet rs = statement.executeQuery()) {
             if (!rs.next()) {
                 throw new SQLException("Conexão de teste em '" + dbName + "' não retornou resultado.");
             }
@@ -77,14 +83,35 @@ public class Main {
         }
     }
 
-    private static void waitUntilOnline(Statement statement, String dbName)
+    private static void createDatabaseIfNotExists(Connection connection, String dbName) throws SQLException {
+        if (databaseExists(connection, dbName)) {
+            return;
+        }
+        try (PreparedStatement statement = connection.prepareStatement(SQL_CREATE_DATABASE)) {
+            statement.setString(1, dbName);
+            statement.execute();
+        }
+    }
+
+    private static boolean databaseExists(Connection connection, String dbName) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(SQL_DATABASE_EXISTS)) {
+            statement.setString(1, dbName);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static void waitUntilOnline(Connection connection, String dbName)
             throws SQLException, InterruptedException {
         for (int attempt = 1; attempt <= WAIT_ONLINE_SECONDS; attempt++) {
-            try (ResultSet rs = statement.executeQuery(
-                    "SELECT state_desc FROM sys.databases WHERE name = N'" + dbName + "'")) {
-                if (rs.next() && "ONLINE".equalsIgnoreCase(rs.getString(1))) {
-                    System.out.println("Bootstrap SQL Server: database '" + dbName + "' ONLINE.");
-                    return;
+            try (PreparedStatement statement = connection.prepareStatement(SQL_DATABASE_STATE)) {
+                statement.setString(1, dbName);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next() && "ONLINE".equalsIgnoreCase(rs.getString(1))) {
+                        System.out.println("Bootstrap SQL Server: database '" + dbName + "' ONLINE.");
+                        return;
+                    }
                 }
             }
             Thread.sleep(1000);
