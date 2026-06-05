@@ -1,0 +1,86 @@
+# Deploy OpenShift — namespace canal-digital-old
+#
+# Pré-requisitos:
+#   - SQL Server acessível no namespace (Service existente)
+#   - ImageStream canal-digital-quarkus-git criado pelo BuildConfig
+#   - Knative Serving (OpenShift Serverless) habilitado
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: canal-digital-db
+  namespace: canal-digital-old
+  labels:
+    app.kubernetes.io/part-of: canal-digital-quarkus-git-app
+type: Opaque
+stringData:
+  # Ajuste conforme o Service do SQL Server no namespace
+  DB_HOST: "sqlserver"
+  DB_PORT: "1433"
+  DB_NAME: "canal_digital"
+  DB_USERNAME: "sa"
+  DB_PASSWORD: "TROQUE_ESTA_SENHA"
+  DB_ENCRYPT: "true"
+  DB_TRUST_CERT: "true"
+  # Opcional: URL completa (sobrescreve DB_HOST/PORT/NAME)
+  # QUARKUS_DATASOURCE_JDBC_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=canal_digital;encrypt=true;trustServerCertificate=true"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: canal-digital-quarkus-git
+  namespace: canal-digital-old
+  labels:
+    app.kubernetes.io/part-of: canal-digital-quarkus-git-app
+  annotations:
+    image.openshift.io/triggers: |
+      [
+        {
+          "from": {
+            "kind": "ImageStreamTag",
+            "name": "canal-digital-quarkus-git:latest"
+          },
+          "fieldPath": "spec.template.spec.containers[?(@.name==\"canal-digital-quarkus-git\")].image"
+        }
+      ]
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+    spec:
+      containerConcurrency: 0
+      timeoutSeconds: 300
+      containers:
+        - name: canal-digital-quarkus-git
+          image: image-registry.openshift-image-registry.svc:5000/canal-digital-old/canal-digital-quarkus-git:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: QUARKUS_PROFILE
+              value: prod
+            - name: DEPLOY_VERSION
+              value: sqlserver-v1
+          envFrom:
+            - secretRef:
+                name: canal-digital-db
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+  traffic:
+    - percent: 100
+      latestRevision: true

@@ -16,79 +16,112 @@ Aplicação completa que simula o **canal digital do cliente** de uma empresa de
 
 - Java 17+
 - Maven 3.9+
+- SQL Server (OpenShift/produção) ou H2 (desenvolvimento local)
 
-## Executar
+## Executar localmente
 
 ```bash
 mvn quarkus:dev
 ```
 
-## Deploy (Docker / OpenShift)
+Usa **SQL Server** (perfil `dev`). Configure `DB_*` ou port-forward do cluster:
 
-**Importante:** faça build limpo antes da imagem — o pod antigo ainda carrega `import.sql` e o banco fica sem usuários.
+```bash
+export DB_HOST=localhost DB_PORT=1433 DB_NAME=canal_digital DB_USERNAME=sa DB_PASSWORD='...'
+mvn quarkus:dev
+```
+
+## Banco de dados
+
+| Ambiente | Perfil | Banco |
+|----------|--------|-------|
+| `mvn quarkus:dev` | `dev` | SQL Server (`DB_*`) |
+| OpenShift / Docker | `prod` | SQL Server (Secret) |
+| `mvn verify` (testes) | `test` | SQL Server via Dev Services (Docker) ou `DB_*` |
+
+### Variáveis (dev, prod e testes manuais)
+
+| Variável | Padrão local |
+|----------|----------------|
+| `DB_HOST` | `localhost` |
+| `DB_PORT` | `1433` |
+| `DB_NAME` | `canal_digital` |
+| `DB_USERNAME` | `sa` |
+| `DB_PASSWORD` | *(obrigatório)* |
+
+```bash
+export DB_HOST=localhost
+export DB_PASSWORD='SuaSenha'
+mvn quarkus:dev
+```
+
+### Testes de integração
+
+Requer **Docker** (Dev Services sobe SQL Server automaticamente no perfil `test`):
+
+```bash
+mvn verify
+```
+
+Para testar contra SQL Server externo (ex.: port-forward do OpenShift):
+
+```bash
+export DB_HOST=localhost DB_PORT=1433 DB_PASSWORD='...'
+# em src/test/resources/application.properties: devservices.enabled=false
+mvn verify
+```
+
+## Deploy OpenShift (Serverless)
+
+Namespace: **`canal-digital-old`** (mesmo dos Canais Digitais).
+
+Guia completo: [`openshift/README.md`](openshift/README.md)
 
 ```bash
 mvn clean package -DskipTests
-docker build -f src/main/docker/Dockerfile.jvm -t canal-digital-quarkus:latest .
+oc project canal-digital-old
+oc apply -f openshift/ksvc.yaml   # Secret + Knative Service
+oc start-build canal-digital-quarkus-git --follow
 ```
 
-Após subir o pod, confira a versão implantada:
+Validação:
 
 ```bash
-curl http://<host>:8080/api/info
+curl $(oc get ksvc canal-digital-quarkus-git -o jsonpath='{.status.url}')/api/info
 ```
 
-Resposta esperada (versão nova):
-
-```json
-{"buildId":"2026-06-05-demo-loader-v2","dataLoader":"DemoDataLoader (Java)","importSql":false,"clientesCadastrados":2}
-```
-
-Nos logs do pod **não** deve aparecer `INSERT INTO clientes` nem `import.sql`. Deve aparecer:
-
-`Dados demo carregados: 2 clientes`
-
-Acesse:
-
-| Recurso        | URL                          |
-|----------------|------------------------------|
-| Aplicação web  | http://localhost:8080        |
-| API OpenAPI    | http://localhost:8080/api/docs |
+Esperado: `"buildId":"2026-06-05-sqlserver-openshift-v1"` e `"clientesCadastrados":2`
 
 ## Contas de demonstração
 
-| Usuário            | Senha  |
-|--------------------|--------|
-| `maria@email.com`  | 123456 |
-| `joao@email.com`   | 123456 |
+| Usuário | Senha |
+|---------|-------|
+| `maria@email.com` | `123456` |
+| `joao@email.com` | `123456` |
 
-Também é possível entrar com o CPF (somente números): `52998224725` ou `39053344705`.
+CPF: `52998224725` ou `39053344705`
 
 ## API (resumo)
 
-| Método | Endpoint                    | Descrição              |
-|--------|-----------------------------|------------------------|
-| POST   | `/api/auth/login`           | Login                  |
-| POST   | `/api/auth/logout`          | Logout                 |
-| GET    | `/api/dashboard`            | Dashboard              |
-| GET    | `/api/cliente/me`           | Dados do cliente       |
-| GET    | `/api/faturas`              | Listar faturas         |
-| POST   | `/api/faturas/{id}/pagar`   | Simular pagamento      |
-| GET    | `/api/consumo`              | Histórico de consumo   |
-| GET/POST | `/api/solicitacoes`       | Solicitações           |
-| GET    | `/api/notificacoes`         | Notificações           |
-| POST   | `/api/notificacoes/{id}/ler`| Marcar como lida       |
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/info` | Versão e status do banco |
+| POST | `/api/auth/login` | Login |
+| GET | `/api/dashboard` | Dashboard |
+| GET | `/api/faturas` | Faturas |
+| GET | `/api/consumo` | Consumo |
 
-Todas as rotas autenticadas exigem o header `Authorization: Bearer <token>`.
+Documentação interativa: `/api/docs`
 
 ## Stack
 
-- **Backend:** Quarkus 3.17, REST, Panache, H2 (memória)
-- **Frontend:** HTML/CSS/JS vanilla + Chart.js (servido pelo Quarkus)
+- **Backend:** Quarkus 3.17, REST, Panache, SQL Server
+- **Frontend:** HTML/CSS/JS + Chart.js
+- **Deploy:** OpenShift Serverless (Knative), Dockerfile JVM
 
 ## Build
 
 ```bash
-mvn package
-java -jar target/quarkus-app/quarkus-run.jar
+mvn clean package -DskipTests
+docker build -f src/main/docker/Dockerfile.jvm -t canal-digital-quarkus:latest .
 ```

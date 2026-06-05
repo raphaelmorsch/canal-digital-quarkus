@@ -9,6 +9,7 @@ import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,8 +20,15 @@ public class DemoDataLoader {
 
     private static final Logger LOG = Logger.getLogger(DemoDataLoader.class);
 
+    @ConfigProperty(name = "canal.demo.seed.enabled", defaultValue = "true")
+    boolean seedEnabled;
+
     @Transactional
     void onStart(@Observes StartupEvent event) {
+        if (!seedEnabled) {
+            LOG.info("Seed demo desabilitado (canal.demo.seed.enabled=false).");
+            return;
+        }
         if (Cliente.count() > 0) {
             LOG.info("Dados demo já carregados — ignorando seed.");
             return;
