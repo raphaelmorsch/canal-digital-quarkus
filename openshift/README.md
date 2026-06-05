@@ -28,6 +28,31 @@ Quarkus também aceita `QUARKUS_DATASOURCE_USERNAME` e `QUARKUS_DATASOURCE_PASSW
 
 ---
 
+## Criar o database (obrigatório na 1ª subida)
+
+A aplicação conecta em `DB_NAME` mas **não cria o database**.  
+Erro típico se faltar:
+
+```text
+Cannot open database "canal_digital" requested by the login. The login failed.
+```
+
+```bash
+oc project canal-digital-old
+
+# Descubra o pod do SQL Server
+oc get pods | grep -i mssql
+
+# Crie o database (ajuste pod e caminho do sqlcmd se necessário)
+oc rsh <pod-mssql> -- /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P 'SUA_SENHA' -C \
+  -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name=N'canal_digital') CREATE DATABASE canal_digital;"
+```
+
+Script completo: [`sql/create-database.sql`](sql/create-database.sql)
+
+---
+
 ## Opção A — S2I + Serverless (console)
 
 1. **Serverless → Services → canal-digital-quarkus-git → Environment**
