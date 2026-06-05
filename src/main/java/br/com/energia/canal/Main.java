@@ -3,6 +3,7 @@ package br.com.energia.canal;
 import io.quarkus.runtime.Quarkus;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.regex.Pattern;
@@ -13,6 +14,7 @@ import java.util.regex.Pattern;
 public class Main {
 
     private static final Pattern SAFE_DB_NAME = Pattern.compile("^[A-Za-z0-9_]+$");
+    private static final int WAIT_ONLINE_SECONDS = 90;
 
     public static void main(String[] args) {
         ensureDatabaseExists();
@@ -44,10 +46,8 @@ public class Main {
             System.exit(1);
         }
 
-        String masterUrl = "jdbc:sqlserver://" + host + ":" + port
-                + ";databaseName=master;encrypt=" + encrypt
-                + ";trustServerCertificate=" + trustCert
-                + ";loginTimeout=15";
+        String masterUrl = jdbcUrl(host, port, "master", encrypt, trustCert, 30, 30_000);
+        String appUrl = jdbcUrl(host, port, dbName, encrypt, trustCert, 60, 120_000);
 
         System.out.println("Bootstrap SQL Server: verificando database '" + dbName + "' em " + host + ":" + port + " ...");
 
@@ -56,14 +56,57 @@ public class Main {
             statement.execute(
                     "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'" + dbName + "') "
                             + "CREATE DATABASE [" + dbName + "]");
-            System.out.println("Bootstrap SQL Server: database '" + dbName + "' OK.");
+            waitUntilOnline(statement, dbName);
         } catch (SQLException e) {
-            System.err.println("ERRO ao conectar no SQL Server (master) com usuário '" + user + "':");
-            System.err.println("  " + e.getMessage());
-            System.err.println("Verifique: DB_HOST, DB_USERNAME, DB_PASSWORD no Secret canal-digital-db");
-            System.err.println("  e se a senha coincide com a do SQL Server (login 'sa').");
+            failBootstrap(user, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("ERRO: bootstrap interrompido ao aguardar database ONLINE.");
             System.exit(1);
         }
+
+        try (Connection connection = DriverManager.getConnection(appUrl, user, password);
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT 1")) {
+            if (!rs.next()) {
+                throw new SQLException("Conexão de teste em '" + dbName + "' não retornou resultado.");
+            }
+            System.out.println("Bootstrap SQL Server: conexão em '" + dbName + "' OK.");
+        } catch (SQLException e) {
+            failBootstrap(user, e);
+        }
+    }
+
+    private static void waitUntilOnline(Statement statement, String dbName)
+            throws SQLException, InterruptedException {
+        for (int attempt = 1; attempt <= WAIT_ONLINE_SECONDS; attempt++) {
+            try (ResultSet rs = statement.executeQuery(
+                    "SELECT state_desc FROM sys.databases WHERE name = N'" + dbName + "'")) {
+                if (rs.next() && "ONLINE".equalsIgnoreCase(rs.getString(1))) {
+                    System.out.println("Bootstrap SQL Server: database '" + dbName + "' ONLINE.");
+                    return;
+                }
+            }
+            Thread.sleep(1000);
+        }
+        throw new SQLException("Database '" + dbName + "' não ficou ONLINE em " + WAIT_ONLINE_SECONDS + "s.");
+    }
+
+    private static String jdbcUrl(
+            String host, String port, String database, String encrypt, String trustCert, int loginTimeout, int socketTimeout) {
+        return "jdbc:sqlserver://" + host + ":" + port
+                + ";databaseName=" + database
+                + ";encrypt=" + encrypt
+                + ";trustServerCertificate=" + trustCert
+                + ";loginTimeout=" + loginTimeout
+                + ";socketTimeout=" + socketTimeout;
+    }
+
+    private static void failBootstrap(String user, SQLException e) {
+        System.err.println("ERRO ao conectar no SQL Server com usuário '" + user + "':");
+        System.err.println("  " + e.getMessage());
+        System.err.println("Verifique: DB_HOST, DB_USERNAME, DB_PASSWORD no Secret canal-digital-db");
+        System.exit(1);
     }
 
     private static String env(String key, String defaultValue) {
