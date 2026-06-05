@@ -1,103 +1,107 @@
-# OpenShift — Canal Digital Quarkus + SQL Server
+# OpenShift — Canal Digital Quarkus + SQL Server (S2I + Serverless)
 
-## 1. Banco SQL Server
+Toda a configuração de banco vem de **variáveis de ambiente**.  
+Referência completa: [`env.example`](env.example)
 
-Crie o database no SQL Server (uma vez):
+## Variáveis obrigatórias (prod / OpenShift)
 
-```sql
-CREATE DATABASE canal_digital;
+| Variável | Descrição | Exemplo |
+|----------|-----------|---------|
+| `QUARKUS_PROFILE` | Perfil Quarkus | `prod` |
+| `DB_HOST` | Nome do **Service** do SQL Server no namespace | `mssql` |
+| `DB_PORT` | Porta | `1433` |
+| `DB_NAME` | Database | `canal_digital` |
+| `DB_USERNAME` | Usuário | `sa` |
+| `DB_PASSWORD` | Senha | *(secret)* |
+
+## Variáveis opcionais
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `DB_ENCRYPT` | `true` | Criptografia JDBC |
+| `DB_TRUST_CERT` | `true` | Trust server certificate |
+| `DB_LOG_SQL` | `false` | Log SQL Hibernate |
+| `CANAL_DEMO_SEED_ENABLED` | `true` | Carrega dados demo se tabelas vazias |
+| `QUARKUS_DATASOURCE_JDBC_URL` | *(montada de DB_*)* | URL JDBC completa (sobrescreve montagem) |
+
+Quarkus também aceita `QUARKUS_DATASOURCE_USERNAME` e `QUARKUS_DATASOURCE_PASSWORD` (prioridade sobre `DB_*`).
+
+---
+
+## Opção A — S2I + Serverless (console)
+
+1. **Serverless → Services → canal-digital-quarkus-git → Environment**
+2. Adicione cada variável de `env.example` (valores reais do seu SQL Server)
+3. `QUARKUS_PROFILE` = `prod`
+4. Salve → nova **Revision** é criada automaticamente
+
+Descubra o host do SQL Server:
+
+```bash
+oc get svc -n canal-digital-old
+# DB_HOST = coluna NAME do Service do SQL Server (ex.: mssql)
 ```
 
-Anote o **hostname do Service** do SQL Server no namespace `canal-digital-old`
-(ex.: `sqlserver`, `mssql`, `seu-sql-service`).
+---
 
-## 2. Secret com credenciais
-
-Edite `ksvc.yaml` (bloco Secret) com host, usuário e senha reais, depois:
+## Opção B — Secret + ksvc.yaml
 
 ```bash
 oc project canal-digital-old
+
+# Edite secret.example.yaml com valores reais, depois:
+oc apply -f openshift/secret.example.yaml
+
+# Aplique o Knative Service (referencia o Secret):
 oc apply -f openshift/ksvc.yaml
 ```
 
-Ou crie o secret manualmente (recomendado — não commitar senha):
+Ou via arquivo de env:
 
 ```bash
-oc create secret generic canal-digital-db \
-  --from-literal=DB_HOST=sqlserver \
-  --from-literal=DB_PORT=1433 \
-  --from-literal=DB_NAME=canal_digital \
-  --from-literal=DB_USERNAME=sa \
-  --from-literal=DB_PASSWORD='SUA_SENHA' \
-  --from-literal=DB_ENCRYPT=true \
-  --from-literal=DB_TRUST_CERT=true \
-  -n canal-digital-old
+cp openshift/env.example openshift/env.local   # edite env.local
+oc create secret generic canal-digital-db --from-env-file=openshift/env.local --dry-run=client -o yaml | oc apply -f -
+oc apply -f openshift/ksvc.yaml
 ```
 
-## 3. Build e imagem
+---
+
+## Build S2I
 
 ```bash
-mvn clean package -DskipTests
-# Start Build no BuildConfig existente, ou:
-oc start-build canal-digital-quarkus-git --from-dir=. --follow -n canal-digital-old
+oc start-build canal-digital-quarkus-git --follow -n canal-digital-old
 ```
 
-A annotation `image.openshift.io/triggers` no `ksvc` cria **revision nova** quando `:latest` atualizar.
+A annotation `image.openshift.io/triggers` no `ksvc` cria revision nova quando `:latest` atualizar.
 
-## 4. Forçar revision (se necessário)
+---
 
-```bash
-oc set env ksvc/canal-digital-quarkus-git DEPLOY_VERSION=$(date +%s) -n canal-digital-old
-```
-
-## 5. Validar
+## Validar
 
 ```bash
 URL=$(oc get ksvc canal-digital-quarkus-git -n canal-digital-old -o jsonpath='{.status.url}')
 curl -s "$URL/api/info"
-curl -s -X POST "$URL/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"identificador":"maria@email.com","senha":"123456"}'
 ```
 
-Resposta esperada em `/api/info`:
+Esperado: `"clientesCadastrados":2` (se seed habilitado e banco vazio na 1ª subida).
 
-```json
-{"buildId":"2026-06-05-sqlserver-openshift-v1","clientesCadastrados":2,...}
-```
-
-## Variáveis de ambiente
-
-| Variável | Descrição |
-|----------|-----------|
-| `QUARKUS_PROFILE` | Deve ser `prod` no OpenShift |
-| `DB_HOST` | Host do SQL Server |
-| `DB_PORT` | Porta (padrão 1433) |
-| `DB_NAME` | Nome do database |
-| `DB_USERNAME` | Usuário |
-| `DB_PASSWORD` | Senha |
-| `QUARKUS_DATASOURCE_JDBC_URL` | (opcional) URL JDBC completa |
+---
 
 ## Desenvolvimento local
 
 ```bash
+export DB_HOST=localhost DB_PORT=1433 DB_NAME=canal_digital DB_USERNAME=sa DB_PASSWORD='...'
 mvn quarkus:dev
 ```
 
-Usa H2 em memória (perfil `dev` automático no `quarkus:dev`).
-
-Para testar com SQL Server local ou port-forward:
+Ou port-forward:
 
 ```bash
-export QUARKUS_PROFILE=dev
-export DB_HOST=localhost
-export DB_PORT=1433
-export DB_NAME=canal_digital
-export DB_USERNAME=sa
-export DB_PASSWORD=...
+oc port-forward svc/<nome-service-sql> 1433:1433 -n canal-digital-old
+export DB_HOST=localhost DB_PASSWORD='...'
 mvn quarkus:dev
 ```
 
-### Testes de integração (`mvn verify`)
+## Testes (`mvn verify`)
 
-Perfil `test` — SQL Server via Dev Services (Docker) ou desabilite devservices e use `DB_*`.
+Perfil `test` — SQL Server via Dev Services (Docker).

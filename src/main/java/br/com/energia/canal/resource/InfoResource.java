@@ -13,7 +13,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Info")
 public class InfoResource {
 
-    private static final String BUILD_ID = "2026-06-05-sqlserver-openshift-v1";
+    private static final String BUILD_ID = "2026-06-05-datasource-fix-v2";
 
     @GET
     public Map<String, Object> info() {

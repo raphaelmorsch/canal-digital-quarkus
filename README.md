@@ -39,37 +39,21 @@ mvn quarkus:dev
 | OpenShift / Docker | `prod` | SQL Server (Secret) |
 | `mvn verify` (testes) | `test` | SQL Server via Dev Services (Docker) ou `DB_*` |
 
-### Variáveis (dev, prod e testes manuais)
+### Variáveis (dev, prod e OpenShift)
 
-| Variável | Padrão local |
-|----------|----------------|
-| `DB_HOST` | `localhost` |
-| `DB_PORT` | `1433` |
-| `DB_NAME` | `canal_digital` |
-| `DB_USERNAME` | `sa` |
-| `DB_PASSWORD` | *(obrigatório)* |
+Todas via ambiente — veja [`openshift/env.example`](openshift/env.example).
 
-```bash
-export DB_HOST=localhost
-export DB_PASSWORD='SuaSenha'
-mvn quarkus:dev
-```
+| Variável | Obrigatória (prod) | Descrição |
+|----------|-------------------|-----------|
+| `QUARKUS_PROFILE` | Sim | `dev` local, `prod` OpenShift |
+| `DB_HOST` | Sim | Nome do Service SQL Server |
+| `DB_PORT` | Sim | Ex.: `1433` |
+| `DB_NAME` | Sim | Ex.: `canal_digital` |
+| `DB_USERNAME` | Sim | Usuário JDBC |
+| `DB_PASSWORD` | Sim | Senha JDBC |
+| `QUARKUS_DATASOURCE_JDBC_URL` | Não | URL completa (opcional) |
 
-### Testes de integração
-
-Requer **Docker** (Dev Services sobe SQL Server automaticamente no perfil `test`):
-
-```bash
-mvn verify
-```
-
-Para testar contra SQL Server externo (ex.: port-forward do OpenShift):
-
-```bash
-export DB_HOST=localhost DB_PORT=1433 DB_PASSWORD='...'
-# em src/test/resources/application.properties: devservices.enabled=false
-mvn verify
-```
+Deploy OpenShift: [`openshift/README.md`](openshift/README.md)
 
 ## Deploy OpenShift (Serverless)
 
