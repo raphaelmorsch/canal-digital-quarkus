@@ -129,6 +129,9 @@
                         <maven.home>${maven.home}</maven.home>
                         <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                     </systemPropertyVariables>
+                    <environmentVariables>
+                        <CANAL_DB_BOOTSTRAP>false</CANAL_DB_BOOTSTRAP>
+                    </environmentVariables>
                 </configuration>
             </plugin>
         </plugins>
