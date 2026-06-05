@@ -97,12 +97,20 @@ function showApp() {
 
 async function loadFeatureFlags() {
     try {
-        const info = await api('/info');
-        featureFlags = info.features || { simuladorEconomia: false };
+        const res = await fetch(`${API}/info`, { cache: 'no-store' });
+        if (!res.ok) {
+            return;
+        }
+        const info = await res.json();
+        featureFlags = {
+            simuladorEconomia: info.features?.simuladorEconomia === true
+        };
         const nav = $('#nav-simulador-economia');
-        if (nav) nav.classList.toggle('hidden', !featureFlags.simuladorEconomia);
+        if (nav) {
+            nav.classList.toggle('hidden', !featureFlags.simuladorEconomia);
+        }
     } catch (_) {
-        featureFlags = { simuladorEconomia: false };
+        /* mantém defaults — menu oculto */
     }
 }
 

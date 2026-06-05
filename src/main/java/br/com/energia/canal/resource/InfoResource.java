@@ -15,7 +15,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Info")
 public class InfoResource {
 
-    private static final String BUILD_ID = "2026-06-05-simulador-economia-v1";
+    private static final String BUILD_ID = "2026-06-05-simulador-economia-v2";
 
     @Inject
     FeatureToggleService features;
@@ -28,6 +28,8 @@ public class InfoResource {
                 "importSql", false,
                 "clientesCadastrados", Cliente.count(),
                 "features", Map.of(
-                        "simuladorEconomia", features.isSimuladorEconomiaEnabled()));
+                        "simuladorEconomia", features.isSimuladorEconomiaEnabled()),
+                "config", Map.of(
+                        "simuladorEconomiaRaw", features.getSimuladorEconomiaConfigRaw()));
     }
 }

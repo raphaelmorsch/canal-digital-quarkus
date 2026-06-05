@@ -8,15 +8,29 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class FeatureToggleService {
 
     @ConfigProperty(name = "canal.feature.simulador-economia.enabled", defaultValue = "false")
-    boolean simuladorEconomiaEnabled;
+    String simuladorEconomiaEnabledRaw;
 
     public boolean isSimuladorEconomiaEnabled() {
-        return simuladorEconomiaEnabled;
+        return parseTruthy(simuladorEconomiaEnabledRaw);
+    }
+
+    public String getSimuladorEconomiaConfigRaw() {
+        return simuladorEconomiaEnabledRaw;
     }
 
     public void requireSimuladorEconomia() {
-        if (!simuladorEconomiaEnabled) {
+        if (!isSimuladorEconomiaEnabled()) {
             throw CanalException.notFound("Simulador de Economia está desabilitado.");
         }
+    }
+
+    static boolean parseTruthy(String value) {
+        if (value == null) {
+            return false;
+        }
+        return switch (value.trim().toLowerCase()) {
+            case "true", "1", "yes", "on" -> true;
+            default -> false;
+        };
     }
 }
