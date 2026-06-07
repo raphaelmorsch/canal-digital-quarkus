@@ -1,0 +1,21 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maven-tests
+spec:
+  params:
+    - name: GOALS
+      type: string
+      default: verify
+  workspaces:
+    - name: source
+  steps:
+    - name: mvn-test
+      image: registry.access.redhat.com/ubi8/openjdk-17:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        echo "Running Maven tests..."
+        ./mvnw $(params.GOALS) || mvn $(params.GOALS)

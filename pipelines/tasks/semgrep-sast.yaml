@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: semgrep-sast
+spec:
+  params:
+    - name: CONFIG
+      type: string
+      default: p/default
+    - name: FAIL_ON_FINDINGS
+      type: string
+      default: "true"
+  workspaces:
+    - name: source
+  steps:
+    - name: semgrep
+      image: semgrep/semgrep:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env sh
+        set -e
+
+        echo "Running Semgrep SAST..."
+        semgrep scan --config=$(params.CONFIG) --json --output=semgrep-results.json .
+
+        echo "Semgrep scan completed."
+
+        if [ "$(params.FAIL_ON_FINDINGS)" = "true" ]; then
+          semgrep scan --config=$(params.CONFIG) --error .
+        fi
