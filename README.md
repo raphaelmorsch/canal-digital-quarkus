@@ -58,7 +58,7 @@ Deploy OpenShift: [`openshift/README.md`](openshift/README.md)
 
 ## Deploy OpenShift (Serverless)
 
-Namespace: **`canal-digital-old`** (mesmo dos Canais Digitais).
+Namespace: **`canal-digital-<dev>-<stg>-<prod>`** (mesmo dos Canais Digitais).
 
 Guia completo: [`openshift/README.md`](openshift/README.md)
 
