@@ -52,7 +52,7 @@ Todas via ambiente — veja [`openshift/env.example`](openshift/env.example).
 | `DB_USERNAME` | Sim | Usuário JDBC |
 | `DB_PASSWORD` | Sim | Senha JDBC |
 | `QUARKUS_DATASOURCE_JDBC_URL` | Não | URL completa (opcional) |
-| `CANAL_FEATURE_SIMULADOR_ECONOMIA` | false | Feature Toggle do Simulador de Economia |
+| `CANAL_FEATURE_SIMULADOR_ECONOMIA` | Sim | `true` or `false` Feature Toggle do Simulador de Economia |
 
 Deploy OpenShift: [`openshift/README.md`](openshift/README.md)
 
