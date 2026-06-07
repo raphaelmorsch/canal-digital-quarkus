@@ -23,7 +23,9 @@ public class Main {
             "SELECT state_desc FROM sys.databases WHERE name = ?";
 
     private static final String SQL_CREATE_DATABASE =
-            "EXEC sp_executesql N'CREATE DATABASE ' + QUOTENAME(@dbName), N'@dbName sysname', @dbName = ?";
+            "DECLARE @name sysname = ?;"
+                    + " DECLARE @sql nvarchar(200) = N'CREATE DATABASE ' + QUOTENAME(@name);"
+                    + " EXEC(@sql);";
 
     public static void main(String[] args) {
         ensureDatabaseExists();
