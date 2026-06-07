@@ -1,0 +1,121 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: canal-digital-quarkus
+  labels:
+    app.kubernetes.io/name: canal-digital-quarkus
+    pipeline.openshift.io/runtime: java
+    pipeline.openshift.io/runtime-version: openjdk-17-ubi8
+    pipeline.openshift.io/type: kubernetes
+spec:
+  params:
+    - name: APP_NAME
+      type: string
+      default: canal-digital-quarkus-git
+    - name: GIT_REPO
+      type: string
+      default: https://github.com/raphaelmorsch/canal-digital-quarkus.git
+    - name: GIT_REVISION
+      type: string
+      default: main
+    - name: IMAGE_NAME
+      type: string
+      default: image-registry.openshift-image-registry.svc:5000/canal-digital-dev/canal-digital-quarkus-git
+    - name: PATH_CONTEXT
+      type: string
+      default: .
+    - name: VERSION
+      type: string
+      default: openjdk-17-ubi8
+  workspaces:
+    - name: workspace
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.GIT_REPO)
+        - name: REVISION
+          value: $(params.GIT_REVISION)
+        - name: SUBDIRECTORY
+          value: ""
+        - name: DELETE_EXISTING
+          value: "true"
+      workspaces:
+        - name: output
+          workspace: workspace
+
+    - name: sast
+      runAfter:
+        - fetch-repository
+      taskRef:
+        name: semgrep-sast
+      params:
+        - name: CONFIG
+          value: p/java
+        - name: FAIL_ON_FINDINGS
+          value: "true"
+      workspaces:
+        - name: source
+          workspace: workspace
+
+    - name: maven-tests
+      runAfter:
+        - sast
+      taskRef:
+        name: maven-tests
+      params:
+        - name: GOALS
+          value: verify
+      workspaces:
+        - name: source
+          workspace: workspace
+
+    - name: build
+      runAfter:
+        - maven-tests
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: s2i-java
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE_NAME)
+        - name: TLS_VERIFY
+          value: "false"
+        - name: CONTEXT
+          value: $(params.PATH_CONTEXT)
+        - name: VERSION
+          value: $(params.VERSION)
+      workspaces:
+        - name: source
+          workspace: workspace
+
+    - name: deploy
+      runAfter:
+        - build
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: openshift-client
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: SCRIPT
+          value: oc rollout status ksvc/$(params.APP_NAME) --timeout=5m
