@@ -22,6 +22,7 @@
         <quarkus.platform.version>3.17.5</quarkus.platform.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
+        <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -155,6 +156,40 @@
                 <quarkus.native.enabled>true</quarkus.native.enabled>
                 <skipITs>false</skipITs>
             </properties>
+        </profile>
+        <profile>
+            <id>sbom</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.cyclonedx</groupId>
+                        <artifactId>cyclonedx-maven-plugin</artifactId>
+                        <version>${cyclonedx-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>makeAggregateBom</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <projectType>application</projectType>
+                            <schemaVersion>1.5</schemaVersion>
+                            <outputFormat>json</outputFormat>
+                            <outputName>canal-digital-quarkus-cyclonedx</outputName>
+                            <outputDirectory>${project.basedir}/sbom</outputDirectory>
+                            <includeBomSerialNumber>true</includeBomSerialNumber>
+                            <includeCompileScope>true</includeCompileScope>
+                            <includeProvidedScope>true</includeProvidedScope>
+                            <includeRuntimeScope>true</includeRuntimeScope>
+                            <includeSystemScope>true</includeSystemScope>
+                            <includeTestScope>false</includeTestScope>
+                            <includeLicenseText>false</includeLicenseText>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>
